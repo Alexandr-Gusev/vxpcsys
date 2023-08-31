@@ -1,0 +1,24 @@
+{
+    "tz": "Europe/Moscow",
+
+    "bot": {
+        "token": "111",
+        "chat_id": -111,
+        "timeout": 5
+    },
+
+    "app": {
+        "api_id": 111,
+        "api_hash": "111",
+        "string_session": "111",
+        "limit": 10,
+        "wait_time": 20
+    },
+
+    "server": {
+        "addr": "0.0.0.0",
+        "port": 3000,
+        "user": "user",
+        "password": "111"
+    }
+}

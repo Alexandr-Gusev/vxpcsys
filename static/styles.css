@@ -1,0 +1,100 @@
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+}
+::-webkit-scrollbar-track {
+	background-color: white;
+}
+::-webkit-scrollbar-thumb {
+	border: 2px solid white;
+	background-color: rgb(96, 96, 156);
+}
+
+#root {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	background-color: rgb(48, 48, 78);
+}
+
+#dialogs {
+	height: 100%;
+	min-width: 240px;
+	max-width: 240px;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+}
+
+#messages {
+	height: 100%;
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+}
+
+.item {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	color: white;
+	margin: 8px 8px 0;
+    padding: 8px;
+	border: 1px solid rgb(96, 96, 156);
+	border-radius: 5px;
+	cursor: pointer;
+	gap: 4px;
+}
+
+.item:last-child {
+	margin-bottom: 8px;
+}
+
+.header {
+	font-size: 14px;
+	font-weight: bold;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: darkseagreen
+}
+
+.text {
+	word-wrap: break-word;
+}
+
+.footer {
+	font-size: 10px;
+}
+
+#dialogs .item.active {
+	background-color: rgb(96, 96, 156);
+}
+
+#messages .footer {
+	margin-left: auto;
+}
+
+#more {
+	background-color: rgb(96, 96, 156);
+}
+
+#more .header {
+	color: white;
+	text-align: center;
+}
+
+.me {
+	color: darksalmon;
+}
+
+.someone {
+	color: darkturquoise;
+}
