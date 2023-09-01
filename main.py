@@ -7,6 +7,7 @@ import base64
 import os
 import json
 import argparse
+from https_utils import create_ssl_context
 
 cfg = None
 all_dialog_titles = {}
@@ -111,8 +112,11 @@ async def event_handler(event):
         if sender is None:
             await update_all_users(m.chat_id)
         sender = all_users.get(m.sender_id)
+    sender_name = get_name(sender)
 
-    data = "{} : {} : {} : {}".format(chat_title, m.date.astimezone(tz).strftime("%d.%m.%y %H:%M:%S"), get_name(sender), m.text)
+    prefix = sender_name if m.sender_id == m.chat_id else "{} : {}".format(chat_title, sender_name)
+
+    data = "{} : {}".format(prefix, m.text)
     send_message(data)
 
 
@@ -195,7 +199,8 @@ async def server_init():
     ])
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, cfg["server"]["addr"], cfg["server"]["port"])
+    ssl_context = create_ssl_context(args.crt, args.key, args.hostname)
+    site = web.TCPSite(runner, cfg["server"]["addr"], cfg["server"]["port"], ssl_context=ssl_context)
     await site.start()
 
 
@@ -205,6 +210,9 @@ async def server_init():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", default="cfg.json")
+    parser.add_argument("--crt", default="localhost.crt")
+    parser.add_argument("--key", default="localhost.key")
+    parser.add_argument("--hostname", default="localhost")
     args = parser.parse_args()
 
     if not os.path.exists(args.cfg):
