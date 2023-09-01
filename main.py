@@ -223,7 +223,7 @@ if __name__ == "__main__":
     client = TelegramClient(
         StringSession(cfg["app"]["string_session"]),
         cfg["app"]["api_id"], cfg["app"]["api_hash"],
-        device_model="Weyland-Yutani Workstation", system_version="Weyland-Yutani OS"
+        device_model="Notepad 2", system_version="Android OS"
     )
     client.add_event_handler(event_handler, events.NewMessage)
     with client:
