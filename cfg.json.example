@@ -22,6 +22,7 @@
         "password": "111",
         "crt": "localhost.crt",
         "key": "localhost.key",
-        "hostname": "localhost"
+        "hostname": "localhost",
+        "downloads": "downloads"
     }
 }

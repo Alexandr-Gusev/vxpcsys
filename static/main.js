@@ -1,4 +1,4 @@
-const TIMEOUT = 5000;
+const TIMEOUT = 60000;
 
 let myId;
 
@@ -61,6 +61,11 @@ const getMessages = (dialog, maxMessageId) => {
             let nextMaxMessageId;
             for (const item of items) {
                 const message = create("div", undefined, {className: "item"});
+                if (item.photo) {
+                    const image = create("img");
+                    message.appendChild(image);
+                    image.src = item.photo;
+                }
                 message.appendChild(create("div", item.sender_name, {className: "header " + (item.sender_id === myId ? "me" : "someone")}));
                 message.appendChild(create("div", item.text, {className: "text"}));
                 message.appendChild(create("div", item.t, {className: "footer"}));

@@ -22,14 +22,19 @@ client = None
 ###############################################################################
 
 
-def send_message(text):
-    url = "https://api.telegram.org/bot{}/sendMessage".format(cfg["bot"]["token"])
+def send_message(text, photo):
+    url = "https://api.telegram.org/bot{}/send{}".format(cfg["bot"]["token"], "Message" if photo is None else "Photo")
     data = {
         "chat_id": cfg["bot"]["chat_id"],
-        "text": text
+        "text" if photo is None else "caption": text
     }
+    files = None
+    if photo is not None:
+        files = {
+            "photo": open(photo, "rb")
+        }
     try:
-        return requests.post(url, data=data, timeout=cfg["bot"]["timeout"]).json()["ok"] is True
+        return requests.post(url, data=data, files=files, timeout=cfg["bot"]["timeout"]).json()["ok"] is True
     except:
         return False
 
@@ -69,11 +74,22 @@ async def get_users(dialog_id):
     return users
 
 
+async def download_photo(m):
+    photo = None
+    if m.photo is not None:
+        fn = "{}/{}".format(cfg["server"]["downloads"], m.id)
+        photo = "{}.jpg".format(fn)
+        if not os.path.exists(photo):
+            photo = await m.download_media(fn)
+    return photo
+
+
 async def get_messages(dialog_id, max_message_id=None):
     args = dict(max_id=max_message_id) if max_message_id else dict()
     messages = []
     async for m in client.iter_messages(dialog_id, limit=cfg["app"]["limit"], wait_time=cfg["app"]["wait_time"], **args):
-        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, m.text))
+        photo = await download_photo(m)
+        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, m.text, photo))
     return messages
 
 
@@ -117,7 +133,8 @@ async def event_handler(event):
     prefix = sender_name if m.sender_id == m.chat_id else "{} : {}".format(chat_title, sender_name)
 
     data = "{} : {}".format(prefix, m.text)
-    send_message(data)
+    photo = await download_photo(m)
+    send_message(data, photo)
 
 
 ###############################################################################
@@ -166,13 +183,14 @@ async def messages(request):
     messages = await get_messages(data["dialog_id"], data.get("max_message_id"))
 
     data = []
-    for t, message_id, sender_name, sender_id, text in messages:
+    for t, message_id, sender_name, sender_id, text, photo in messages:
         data.append(dict(
             t=t.astimezone(tz).strftime("%d.%m.%y %H:%M:%S"),
             message_id=message_id,
             sender_name=sender_name,
             sender_id=sender_id,
-            text=text
+            text=text,
+            photo=photo
         ))
     return web.json_response(data)
 
@@ -192,6 +210,7 @@ async def server_init():
     app.add_routes([
         web.get("/", index),
         web.static("/static", "static"),
+        web.static("/downloads", cfg["server"]["downloads"]),
         web.post("/me", me),
         web.post("/dialogs", dialogs),
         web.post("/users", users),
@@ -217,6 +236,9 @@ if __name__ == "__main__":
 
     with open(args.cfg) as f:
         cfg = json.loads(f.read())
+
+    if not os.path.exists(cfg["server"]["downloads"]):
+        os.makedirs(cfg["server"]["downloads"])
 
     tz = pytz.timezone(cfg["tz"])
 
