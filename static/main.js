@@ -36,9 +36,10 @@ const getMessages = (dialog, maxMessageId) => {
     xhr.onabort = xhr.onerror;
     xhr.onload = e => {
         if (e.target.status === 200) {
-            let items = [];
+            let data = [];
+            let moreData = false;
             try {
-                items = JSON.parse(e.target.responseText);
+                ({data, more_data: moreData} = JSON.parse(e.target.responseText));
             } catch (error) {
                 console.error(error);
             }
@@ -51,7 +52,7 @@ const getMessages = (dialog, maxMessageId) => {
 
                 messages.scrollTo({top: 0});
 
-                more = create("div", undefined, {className: "item", id: "more", onclick: () => getMessages(dialog, nextMaxMessageId)});
+                more = create("div", undefined, {className: "item", id: "more"});
                 more.appendChild(create("div", "Дальше", {className: "header"}));
             } else {
                 more = document.getElementById("more");
@@ -59,21 +60,24 @@ const getMessages = (dialog, maxMessageId) => {
             }
 
             let nextMaxMessageId;
-            for (const item of items) {
+            for (const item of data) {
                 const message = create("div", undefined, {className: "item"});
+                message.appendChild(create("div", item.sender_name, {className: "header " + (item.sender_id === myId ? "me" : "someone")}));
                 if (item.photo) {
                     const image = create("img");
                     message.appendChild(image);
                     image.src = item.photo;
                 }
-                message.appendChild(create("div", item.sender_name, {className: "header " + (item.sender_id === myId ? "me" : "someone")}));
                 message.appendChild(create("div", item.text, {className: "text"}));
                 message.appendChild(create("div", item.t, {className: "footer"}));
                 messages.appendChild(message);
                 nextMaxMessageId = item.message_id;
             }
 
-            messages.appendChild(more);
+            if (nextMaxMessageId && moreData) {
+                more.onclick = () => getMessages(dialog, nextMaxMessageId);
+                messages.appendChild(more);
+            }
         } else {
             e.target.onerror();
         }

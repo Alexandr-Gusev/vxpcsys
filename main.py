@@ -88,8 +88,11 @@ async def get_messages(dialog_id, max_message_id=None):
     args = dict(max_id=max_message_id) if max_message_id else dict()
     messages = []
     async for m in client.iter_messages(dialog_id, limit=cfg["app"]["limit"], wait_time=cfg["app"]["wait_time"], **args):
+        text = m.text
         photo = await download_photo(m)
-        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, m.text, photo))
+        if photo is None and m.file is not None:
+            text = "<{}> {}".format(m.file.name, text)
+        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, text, photo))
     return messages
 
 
@@ -132,8 +135,11 @@ async def event_handler(event):
 
     prefix = sender_name if m.sender_id == m.chat_id else "{} : {}".format(chat_title, sender_name)
 
-    data = "{} : {}".format(prefix, m.text)
+    text = m.text
     photo = await download_photo(m)
+    if photo is None and m.file is not None:
+        text = "<{}> {}".format(m.file.name, text)
+    data = "{} : {}".format(prefix, text)
     send_message(data, photo)
 
 
@@ -192,7 +198,7 @@ async def messages(request):
             text=text,
             photo=photo
         ))
-    return web.json_response(data)
+    return web.json_response({"data": data, "more_data": len(data) == cfg["app"]["limit"]})
 
 
 @web.middleware
