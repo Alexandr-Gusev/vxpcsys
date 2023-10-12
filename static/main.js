@@ -63,10 +63,12 @@ const getMessages = (dialog, maxMessageId) => {
             for (const item of data) {
                 const message = create("div", undefined, {className: "item"});
                 message.appendChild(create("div", item.sender_name, {className: "header " + (item.sender_id === myId ? "me" : "someone")}));
-                if (item.photo) {
-                    const image = create("img");
-                    message.appendChild(image);
-                    image.src = item.photo;
+                if (item.media_fn) {
+                    const ext = item.media_fn.split(".").pop();
+                    const video = item.media_t === "video" || (item.media_t === "sticker" && ext === "webm");
+                    const m = video ? create("video", undefined, {controls: true}) : create("img");
+                    message.appendChild(m);
+                    m.src = item.media_fn;
                 }
                 message.appendChild(create("div", item.text, {className: "text"}));
                 message.appendChild(create("div", item.t, {className: "footer"}));

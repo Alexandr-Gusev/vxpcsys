@@ -8,6 +8,7 @@ import os
 import json
 import argparse
 from https_utils import create_ssl_context
+import glob
 
 cfg = None
 all_dialog_titles = {}
@@ -22,16 +23,40 @@ client = None
 ###############################################################################
 
 
-def send_message(text, photo):
-    url = "https://api.telegram.org/bot{}/send{}".format(cfg["bot"]["token"], "Message" if photo is None else "Photo")
+def send_message(text, media_fn, media_t):
+    url_exts = {
+        "photo": "Photo",
+        "video": "Video",
+        "sticker": "Sticker"
+    }
+    url_ext = url_exts.get(media_t, "Message")
+    url = "https://api.telegram.org/bot{}/send{}".format(cfg["bot"]["token"], url_ext)
     data = {
-        "chat_id": cfg["bot"]["chat_id"],
-        "text" if photo is None else "caption": text
+        "chat_id": cfg["bot"]["chat_id"]
     }
     files = None
-    if photo is not None:
+    if url_ext == "Message":
+        data["text"] = text
+    elif url_ext == "Photo":
+        data["caption"] = text
         files = {
-            "photo": open(photo, "rb")
+            "photo": open(media_fn, "rb")
+        }
+    elif url_ext == "Video":
+        data["caption"] = text
+        files = {
+            "video": open(media_fn, "rb")
+        }
+    elif url_ext == "Sticker":
+        # info message for sticker
+        message_url = "https://api.telegram.org/bot{}/sendMessage".format(cfg["bot"]["token"])
+        try:
+            if not requests.post(message_url, data=dict(data, text=text), timeout=cfg["bot"]["timeout"]).json()["ok"]:
+                return False
+        except:
+            return False
+        files = {
+            "sticker": open(media_fn, "rb")
         }
     try:
         return requests.post(url, data=data, files=files, timeout=cfg["bot"]["timeout"]).json()["ok"] is True
@@ -74,14 +99,25 @@ async def get_users(dialog_id):
     return users
 
 
-async def download_photo(m):
-    photo = None
-    if m.photo is not None:
-        fn = "{}/{}".format(cfg["server"]["downloads"], m.id)
-        photo = "{}.jpg".format(fn)
-        if not os.path.exists(photo):
-            photo = await m.download_media(fn)
-    return photo
+async def download_media(m):
+    media_ts = (
+        "photo",
+        "video",
+        "sticker"
+    )
+    for media_t in media_ts:
+        if getattr(m, media_t) is not None:
+            media_fn = "{}/{}".format(cfg["server"]["downloads"], m.id)
+            media_fns = glob.glob("{}.*".format(media_fn))
+            if not media_fns:
+                media_fn = await m.download_media(media_fn)
+            else:
+                media_fn = media_fns[0]
+            _, ext = os.path.splitext(media_fn)
+            if media_t == "sticker" and ext not in [".webp", ".webm"]:
+                return None, None
+            return media_fn, media_t
+    return None, None
 
 
 async def get_messages(dialog_id, max_message_id=None):
@@ -89,10 +125,10 @@ async def get_messages(dialog_id, max_message_id=None):
     messages = []
     async for m in client.iter_messages(dialog_id, limit=cfg["app"]["limit"], wait_time=cfg["app"]["wait_time"], **args):
         text = m.text
-        photo = await download_photo(m)
-        if photo is None and m.file is not None:
+        media_fn, media_t = await download_media(m)
+        if media_fn is None and m.file is not None:
             text = "<{}> {}".format(m.file.name, text)
-        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, text, photo))
+        messages.append((m.date, m.id, get_name(m.sender), m.sender_id, text, media_fn, media_t))
     return messages
 
 
@@ -136,11 +172,11 @@ async def event_handler(event):
     prefix = sender_name if m.sender_id == m.chat_id else "{} : {}".format(chat_title, sender_name)
 
     text = m.text
-    photo = await download_photo(m)
-    if photo is None and m.file is not None:
+    media_fn, media_t = await download_media(m)
+    if media_fn is None and m.file is not None:
         text = "<{}> {}".format(m.file.name, text)
     data = "{} : {}".format(prefix, text)
-    send_message(data, photo)
+    send_message(data, media_fn, media_t)
 
 
 ###############################################################################
@@ -189,14 +225,15 @@ async def messages(request):
     messages = await get_messages(data["dialog_id"], data.get("max_message_id"))
 
     data = []
-    for t, message_id, sender_name, sender_id, text, photo in messages:
+    for t, message_id, sender_name, sender_id, text, media_fn, media_t in messages:
         data.append(dict(
             t=t.astimezone(tz).strftime("%d.%m.%y %H:%M:%S"),
             message_id=message_id,
             sender_name=sender_name,
             sender_id=sender_id,
             text=text,
-            photo=photo
+            media_fn=media_fn,
+            media_t=media_t
         ))
     return web.json_response({"data": data, "more_data": len(data) == cfg["app"]["limit"]})
 
