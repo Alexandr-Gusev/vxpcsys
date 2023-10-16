@@ -66,7 +66,14 @@ const getMessages = (dialog, maxMessageId) => {
                 if (item.media_fn) {
                     const ext = item.media_fn.split(".").pop();
                     const video = item.media_t === "video" || (item.media_t === "sticker" && ext === "webm");
-                    const m = video ? create("video", undefined, {controls: true}) : create("img");
+                    const audio = item.media_t === "audio" || item.media_t === "voice";
+                    const m = (
+                        video
+                            ? create("video", undefined, {controls: true})
+                            : audio
+                                ? create("audio", undefined, {controls: true})
+                                : create("img")
+                    );
                     message.appendChild(m);
                     m.src = item.media_fn;
                 }

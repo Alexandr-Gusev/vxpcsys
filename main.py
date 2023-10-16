@@ -27,6 +27,8 @@ def send_message(text, media_fn, media_t):
     url_exts = {
         "photo": "Photo",
         "video": "Video",
+        "audio": "Audio",
+        "voice": "Voice",
         "gif": "Animation",
         "sticker": "Sticker"
     }
@@ -47,6 +49,16 @@ def send_message(text, media_fn, media_t):
         data["caption"] = text
         files = {
             "video": open(media_fn, "rb")
+        }
+    elif url_ext == "Audio":
+        data["caption"] = text
+        files = {
+            "audio": open(media_fn, "rb")
+        }
+    elif url_ext == "Voice":
+        data["caption"] = text
+        files = {
+            "voice": open(media_fn, "rb")
         }
     elif url_ext == "Animation":
         data["caption"] = text
@@ -109,6 +121,8 @@ async def download_media(m):
     media_ts = (
         "photo",
         "video",
+        "audio",
+        "voice",
         "gif",
         "sticker"
     )
