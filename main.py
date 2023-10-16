@@ -27,6 +27,7 @@ def send_message(text, media_fn, media_t):
     url_exts = {
         "photo": "Photo",
         "video": "Video",
+        "gif": "Animation",
         "sticker": "Sticker"
     }
     url_ext = url_exts.get(media_t, "Message")
@@ -46,6 +47,11 @@ def send_message(text, media_fn, media_t):
         data["caption"] = text
         files = {
             "video": open(media_fn, "rb")
+        }
+    elif url_ext == "Animation":
+        data["caption"] = text
+        files = {
+            "animation": open(media_fn, "rb")
         }
     elif url_ext == "Sticker":
         # info message for sticker
@@ -103,6 +109,7 @@ async def download_media(m):
     media_ts = (
         "photo",
         "video",
+        "gif",
         "sticker"
     )
     for media_t in media_ts:
