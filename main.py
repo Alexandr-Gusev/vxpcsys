@@ -91,9 +91,9 @@ def get_name(user):
     if user is None:
         return "?"
     res = ""
-    if user.first_name:
+    if getattr(user, "first_name", None):
         res = user.first_name
-    if user.last_name:
+    if getattr(user, "last_name", None):
         if res:
             res += " "
         res += user.last_name
@@ -142,6 +142,8 @@ async def download_media(m):
 
 
 async def get_messages(dialog_id, max_message_id=None):
+    if all_dialog_titles.get(dialog_id) is None:
+        await update_all_dialog_titles()
     args = dict(max_id=max_message_id) if max_message_id else dict()
     messages = []
     async for m in client.iter_messages(dialog_id, limit=cfg["app"]["limit"], wait_time=cfg["app"]["wait_time"], **args):
