@@ -5,3 +5,4 @@ cfg.json
 localhost.crt
 localhost.key
 downloads
+log

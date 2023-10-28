@@ -69,10 +69,10 @@ const getMessages = (dialog, maxMessageId) => {
                     const audio = item.media_t === "audio" || item.media_t === "voice";
                     const m = (
                         video
-                            ? create("video", undefined, {controls: true})
+                            ? create("video", undefined, {controls: true, className: "media"})
                             : audio
                                 ? create("audio", undefined, {controls: true})
-                                : create("img")
+                                : create("img", undefined, {className: "media"})
                     );
                     message.appendChild(m);
                     m.src = item.media_fn;
