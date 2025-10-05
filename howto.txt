@@ -2,6 +2,11 @@
 - passwd vxpcsys
 - copy app in /opt/vxpcsys
 - chmod -R 777 /opt/vxpcsys
+- cd /opt/vxpcsys
+- python -m venv venv
+- source venv/bin/activate
+- python -m pip install -r requirements.txt
+- deactivate
 - set SELINUX=permissive in /etc/selinux/config
 - touch /etc/systemd/system/vxpcsys.service
 ---------------------------------------------------------------------
@@ -12,7 +17,7 @@ After=network.target
 [Service]
 User=vxpcsys
 WorkingDirectory=/opt/vxpcsys
-ExecStart=python3 /opt/vxpcsys/main.py
+ExecStart=/opt/vxpcsys/venv/bin/python /opt/vxpcsys/main.py
 Restart=always
 RestartSec=10
 
