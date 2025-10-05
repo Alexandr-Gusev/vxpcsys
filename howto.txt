@@ -1,0 +1,24 @@
+- useradd vxpcsys
+- passwd vxpcsys
+- copy app in /opt/vxpcsys
+- chmod -R 777 /opt/vxpcsys
+- set SELINUX=permissive in /etc/selinux/config
+- touch /etc/systemd/system/vxpcsys.service
+---------------------------------------------------------------------
+[Unit]
+Description=vxpcsys
+After=network.target
+
+[Service]
+User=vxpcsys
+WorkingDirectory=/opt/vxpcsys
+ExecStart=python3 /opt/vxpcsys/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+---------------------------------------------------------------------
+- systemctl enable vxpcsys
+- systemctl start vxpcsys
+- systemctl -l status vxpcsys

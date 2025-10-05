@@ -1,5 +1,4 @@
-import startup
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, utils
 from telethon.sessions import StringSession
 import pytz
 import requests
@@ -9,7 +8,8 @@ import os
 import json
 import argparse
 from https_utils import create_ssl_context
-import glob
+from io import BytesIO
+import mimetypes
 
 cfg = None
 all_dialog_titles = {}
@@ -24,7 +24,7 @@ client = None
 ###############################################################################
 
 
-def send_message(text, media_fn, media_t):
+def send_message(text, media_fn, media_t, media_f):
     url_exts = {
         "photo": "Photo",
         "video": "Video",
@@ -39,32 +39,42 @@ def send_message(text, media_fn, media_t):
         "chat_id": cfg["bot"]["chat_id"]
     }
     files = None
+
+    f = [None]
+
+    def get_media_f():
+        if cfg["server"]["downloads"] is None:
+            return media_f
+        fn = "{}/{}".format(cfg["server"]["downloads"], media_fn)
+        f[0] = open(fn, "rb")
+        return f[0]
+
     if url_ext == "Message":
         data["text"] = text
     elif url_ext == "Photo":
         data["caption"] = text
         files = {
-            "photo": open(media_fn, "rb")
+            "photo": get_media_f()
         }
     elif url_ext == "Video":
         data["caption"] = text
         files = {
-            "video": open(media_fn, "rb")
+            "video": get_media_f()
         }
     elif url_ext == "Audio":
         data["caption"] = text
         files = {
-            "audio": open(media_fn, "rb")
+            "audio": get_media_f()
         }
     elif url_ext == "Voice":
         data["caption"] = text
         files = {
-            "voice": open(media_fn, "rb")
+            "voice": get_media_f()
         }
     elif url_ext == "Animation":
         data["caption"] = text
         files = {
-            "animation": open(media_fn, "rb")
+            "animation": get_media_f()
         }
     elif url_ext == "Sticker":
         # info message for sticker
@@ -75,12 +85,15 @@ def send_message(text, media_fn, media_t):
         except:
             return False
         files = {
-            "sticker": open(media_fn, "rb")
+            "sticker": get_media_f()
         }
     try:
         return requests.post(url, data=data, files=files, timeout=cfg["bot"]["timeout"]).json()["ok"] is True
     except:
         return False
+    finally:
+        if f[0] is not None:
+            f[0].close()
 
 
 ###############################################################################
@@ -118,7 +131,7 @@ async def get_users(dialog_id):
     return users
 
 
-async def download_media(m):
+async def get_media(m, download=True):
     media_ts = (
         "photo",
         "video",
@@ -129,17 +142,25 @@ async def download_media(m):
     )
     for media_t in media_ts:
         if getattr(m, media_t) is not None:
-            media_fn = "{}/{}".format(cfg["server"]["downloads"], m.id)
-            media_fns = glob.glob("{}.*".format(media_fn))
-            if not media_fns:
-                media_fn = await m.download_media(media_fn)
+            if media_t == "sticker":
+                ext = mimetypes.guess_extension(m.sticker.mime_type)
+                if ext not in [".webp", ".webm"]:
+                    return None, None, None
             else:
-                media_fn = media_fns[0]
-            _, ext = os.path.splitext(media_fn)
-            if media_t == "sticker" and ext not in [".webp", ".webm"]:
-                return None, None
-            return media_fn, media_t
-    return None, None
+                ext = utils.get_extension(m)
+            media_fn = "{}-{}{}".format(m.chat_id, m.id, ext)
+            media_f = None
+            if download:
+                if cfg["server"]["downloads"] is None:
+                    media_f = BytesIO()
+                    await m.download_media(media_f)
+                    media_f.seek(0)
+                else:
+                    fn = "{}/{}".format(cfg["server"]["downloads"], media_fn)
+                    if not os.path.exists(fn):
+                        await m.download_media(fn)
+            return media_fn, media_t, media_f
+    return None, None, None
 
 
 async def get_messages(dialog_id, max_message_id=None):
@@ -149,7 +170,7 @@ async def get_messages(dialog_id, max_message_id=None):
     messages = []
     async for m in client.iter_messages(dialog_id, limit=cfg["app"]["limit"], wait_time=cfg["app"]["wait_time"], **args):
         text = m.text
-        media_fn, media_t = await download_media(m)
+        media_fn, media_t, _ = await get_media(m, download=False)
         if media_fn is None and m.file is not None:
             text = "<{}> {}".format(m.file.name, text)
         messages.append((m.date, m.id, get_name(m.sender), m.sender_id, text, media_fn, media_t))
@@ -196,11 +217,11 @@ async def event_handler(event):
     prefix = sender_name if m.sender_id == m.chat_id else "{} : {}".format(chat_title, sender_name)
 
     text = m.text
-    media_fn, media_t = await download_media(m)
+    media_fn, media_t, media_f = await get_media(m)
     if media_fn is None and m.file is not None:
         text = "<{}> {}".format(m.file.name, text)
     data = "{} : {}".format(prefix, text)
-    send_message(data, media_fn, media_t)
+    send_message(data, media_fn, media_t, media_f)
 
 
 ###############################################################################
@@ -262,6 +283,14 @@ async def messages(request):
     return web.json_response({"data": data, "more_data": len(data) == cfg["app"]["limit"]})
 
 
+async def downloads(request):
+    fn = request.match_info.get("fn")
+    chat_id, message_id = fn.split(".")[0].split("-")
+    m = await client.get_messages(int(chat_id), ids=int(message_id))
+    _, _, media_f = await get_media(m)
+    return web.Response(body=media_f.read(), content_type=mimetypes.guess_type(fn)[0])
+
+
 @web.middleware
 async def basic_auth_middleware(request, handler):
     auth = request.headers.get("Authorization")
@@ -277,12 +306,15 @@ async def server_init():
     app.add_routes([
         web.get("/", index),
         web.static("/static", "static"),
-        web.static("/downloads", cfg["server"]["downloads"]),
         web.post("/me", me),
         web.post("/dialogs", dialogs),
         web.post("/users", users),
         web.post("/messages", messages)
     ])
+    if cfg["server"]["downloads"] is None:
+        app.add_routes([web.get("/downloads/{fn}", downloads)])
+    else:
+        app.add_routes([web.static("/downloads", cfg["server"]["downloads"])])
     runner = web.AppRunner(app)
     await runner.setup()
     ssl_context = create_ssl_context(cfg["server"]["crt"], cfg["server"]["key"], cfg["server"]["hostname"])
@@ -294,6 +326,8 @@ async def server_init():
 
 
 if __name__ == "__main__":
+    mimetypes.add_type("image/webp", ".webp")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", default="cfg.json")
     args = parser.parse_args()
@@ -304,7 +338,10 @@ if __name__ == "__main__":
     with open(args.cfg) as f:
         cfg = json.loads(f.read())
 
-    if not os.path.exists(cfg["server"]["downloads"]):
+    if not cfg.get("disable_log", False):
+        import startup
+
+    if cfg["server"]["downloads"] is not None and not os.path.exists(cfg["server"]["downloads"]):
         os.makedirs(cfg["server"]["downloads"])
 
     tz = pytz.timezone(cfg["tz"])

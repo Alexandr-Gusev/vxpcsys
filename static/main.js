@@ -75,7 +75,7 @@ const getMessages = (dialog, maxMessageId) => {
                                 : create("img", undefined, {className: "media"})
                     );
                     message.appendChild(m);
-                    m.src = item.media_fn;
+                    m.src = "/downloads/" + item.media_fn;
                 }
                 message.appendChild(create("div", item.text, {className: "text"}));
                 message.appendChild(create("div", item.t, {className: "footer"}));
